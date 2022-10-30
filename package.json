@@ -1,0 +1,33 @@
+{
+    "name": "ooo-client",
+    "version": "1.0.0",
+    "description": "js client for ooo",
+    "main": "ooo.js",
+    "typings": "ooo.d.ts",
+    "type": "module",
+    "scripts": {
+        "start": "rollup -c -w",
+        "build": "rollup -c",
+        "test": "node test.js"
+    },
+    "author": {
+        "name": "Benito Gomez",
+        "email": "benitogf@outlook.com"
+    },
+    "homepage": "https://github.com/benitogf/ooo-client",
+    "license": "MIT",
+    "dependencies": {
+        "fast-json-patch": "^3.1.0",
+        "ky": "^0.31.4"
+    },
+    "devDependencies": {
+        "express": "^4.18.2",
+        "jasmine": "^4.5.0",
+        "jasmine-console-reporter": "^3.1.0",
+        "ps-tree": "^1.2.0",
+        "puppeteer": "^19.2.0",
+        "rollup": "^3.2.3",
+        "rollup-plugin-commonjs": "^10.1.0",
+        "rollup-plugin-node-resolve": "^5.2.0"
+    }
+}
