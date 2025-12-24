@@ -153,7 +153,7 @@ const _ooo = {
     },
 
     async stats() {
-        return ky.get(this.httpUrl).json()
+        return ky.get(this.httpUrl+'/?api=keys').json()
     },
     async get(key) {
         const data = await ky.get(this.httpUrl + '/' + key).json()
