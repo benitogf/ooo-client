@@ -2,7 +2,7 @@ module github.com/benitogf/ooo-client
 
 go 1.25
 
-require github.com/benitogf/ooo v0.0.0-20221030074718-d54bec6d4910
+require github.com/benitogf/ooo v0.0.0-20251124052607-b19fb995a95c
 
 replace github.com/benitogf/ooo => ../ooo
 
