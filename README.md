@@ -1,69 +1,86 @@
 # ooo-client
 
 [![Test](https://github.com/benitogf/ooo-client/actions/workflows/test.yml/badge.svg)](https://github.com/benitogf/ooo-client/actions/workflows/test.yml)
+[![npm](https://img.shields.io/npm/v/ooo-client.svg?style=flat-square)](https://www.npmjs.com/package/ooo-client)
 
-[![npm][npm-image]][npm-url]
+JavaScript client for the [ooo](https://github.com/benitogf/ooo) ecosystem. Provides encode/decode methods and a reconnecting WebSocket abstraction.
 
-[npm-image]: https://img.shields.io/npm/v/ooo-client.svg?style=flat-square
-[npm-url]: https://www.npmjs.com/package/ooo-client
+## Features
 
-js client for [ooo](https://github.com/benitogf/ooo) though the service should be usable with the [standard websocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) and [http/fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) request method, this client provides encode/decode methods and a reconnecting websocket abstraction.
+- **Reconnecting WebSocket** with automatic retry
+- **JSON patch support** for efficient updates
+- **State caching** for latest subscription data
+- **Works with standard APIs** (WebSocket, fetch)
 
-Messages will arrive either as a snapshot or a [patch](https://json-patch-builder-online.github.io/) the subscription keeps a cache of the latest state.
+## Installation
 
-## how to
-
-### install
 ```bash
 npm i ooo-client
 ```
 
-#### object
+## Usage
+
+### Single Object
+
 ```js
 import ooo from 'ooo-client'
 
 const client = ooo('localhost:8800/box')
-let msgs = []
+
 client.onopen = async () => {
-  await client.publish('box', { name: 'something 🧰' }) // create
-  await client.publish('box', { name: 'still something 💾' }) // update
-  await client.unpublish('box') // delete
+  await client.publish('box', { name: 'something 🧰' })    // create
+  await client.publish('box', { name: 'updated 💾' })      // update
+  await client.unpublish('box')                         // delete
 }
-client.onmessage = async (msg) => { // read
-  msgs.push(msg)
-  if (msgs.length === 4) {
-    client.close()
-    console.log(msgs)
-  }
+
+client.onmessage = (msg) => {
+  console.log('received:', msg)
 }
+
 client.onerror = (err) => {
+  console.error('error:', err)
   client.close()
 }
 ```
 
-#### list
+### List (Glob Pattern)
+
 ```js
 import ooo from 'ooo-client'
 
-const client = ooo('localhost:8800/box/*')
-let msgs = []
+const client = ooo('localhost:8800/items/*')
+
 client.onopen = async () => {
-  const id = await client.publish('box/*', { name: 'something 🧰' }) // create
-  await client.publish('box/' + id, { name: 'still something 💾' }) // update
-  await client.publish('box/custom', { name: 'custom something 🧰' }) // create
-  await client.unpublish('box/*') // delete list
+  const id = await client.publish('items/*', { name: 'item 1' })  // create
+  await client.publish('items/' + id, { name: 'updated' })        // update
+  await client.publish('items/custom', { name: 'custom item' })   // create with key
+  await client.unpublish('items/*')                               // delete all
 }
-client.onmessage = async (msg) => { // read
-  msgs.push(msg)
-  if (msgs.length === 5) {
-    client.close()
-    console.log(msgs)
-  }
+
+client.onmessage = (items) => {
+  console.log('items:', items)
 }
+
 client.onerror = (err) => {
+  console.error('error:', err)
   client.close()
 }
 ```
+
+## Message Format
+
+Messages arrive as either:
+- **Snapshot**: Full state on initial connection
+- **Patch**: [JSON Patch](https://json-patch-builder-online.github.io/) for incremental updates
+
+The client maintains a cache of the latest state.
+
+## Related Projects
+
+- [ooo](https://github.com/benitogf/ooo) - Main server library (Go)
+- [ko](https://github.com/benitogf/ko) - Persistent storage adapter
+- [auth](https://github.com/benitogf/auth) - JWT authentication
+- [mono](https://github.com/benitogf/mono) - Full-stack boilerplate
 
 
 
