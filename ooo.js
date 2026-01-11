@@ -18,7 +18,18 @@ const patch = (msg, cache) => {
         return msg.data
     }
 
-    return applyPatch(cache, msg.data).newDocument
+    // If cache is null, we can't apply a patch - return data as snapshot
+    if (cache === null) {
+        return msg.data
+    }
+
+    // Try to apply patch, fall back to snapshot data if it fails
+    try {
+        return applyPatch(cache, msg.data).newDocument
+    } catch (e) {
+        console.warn('ooo-client: patch failed, using snapshot data', e)
+        return msg.data
+    }
 }
 
 const noop = (_e) => { }
