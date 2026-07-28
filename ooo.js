@@ -18,7 +18,9 @@ const patch = (msg, cache) => {
         return msg.data
     }
 
-    return applyPatch(cache, msg.data).newDocument
+    // mutateDocument: false -> a failed patch leaves `cache` untouched (all-or-nothing).
+    // fast-json-patch v3 signature: applyPatch(document, patch, validateOperation, mutateDocument)
+    return applyPatch(cache, msg.data, undefined, false).newDocument
 }
 
 const noop = (_e) => { }
@@ -60,9 +62,27 @@ const _ooo = {
     },
 
     _data(event) {
-        const msg = binaryStringToObject(event.data)
-        this.version = msg.version
-        this.cache = patch(msg, this.cache)
+        let nextVersion
+        let nextCache
+        try {
+            const msg = binaryStringToObject(event.data)
+            nextVersion = msg.version
+            nextCache = patch(msg, this.cache)
+        } catch (err) {
+            // a failed patch (or decode) must resync, never corrupt the cache.
+            // resync BEFORE notifying: recovery must not depend on the consumer
+            // callback (a throwing onerror must not leave the subscription frozen).
+            // clear version so the redial carries no ?v= and the server answers
+            // with a full snapshot, then drive the client's forced-reconnect path.
+            this.cache = null
+            this.version = null
+            this.close(true)
+            this.onerror(err)
+            return
+        }
+        // commit only on success
+        this.version = nextVersion
+        this.cache = nextCache
         this.onmessage(this.cache)
     },
 
