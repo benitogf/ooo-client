@@ -197,11 +197,13 @@ describe('ooo', () => {
                 if (phase === 'seeding' && msg.length === 3) {
                     phase = 'recovering'
                     client.reconnectInterval = 200
-                    // corrupt the local cache so the next positional patch cannot apply
-                    // (ooo emits a bare `remove /<n>`; only a null cache makes it throw)
-                    client.cache = null
+                    // drift the local cache so the next positional patch cannot apply:
+                    // an emptied cache has no index for the server's `remove /<n>`, so
+                    // under validateOperation the patch is unresolvable and throws (the
+                    // realistic row-drift shape, not a null hack).
+                    client.cache = []
                     // delete one record: the server emits a positional patch the
-                    // corrupted cache cannot apply -> patch failure -> resync
+                    // drifted cache cannot apply -> patch failure -> resync
                     client.unpublish('resync/' + ids[0])
                     return
                 }

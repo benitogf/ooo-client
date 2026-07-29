@@ -18,9 +18,14 @@ const patch = (msg, cache) => {
         return msg.data
     }
 
-    // mutateDocument: false -> a failed patch leaves `cache` untouched (all-or-nothing).
+    // validateOperation: true -> an op the cache can't resolve (a positional
+    // remove/replace addressing an index the local cache doesn't have) throws
+    // instead of silently no-op'ing or committing a sparse-corrupted array, so
+    // the resync path below actually fires for the row-drift class. Valid ops
+    // still apply. mutateDocument: false -> a failed patch leaves `cache`
+    // untouched (all-or-nothing).
     // fast-json-patch v3 signature: applyPatch(document, patch, validateOperation, mutateDocument)
-    return applyPatch(cache, msg.data, undefined, false).newDocument
+    return applyPatch(cache, msg.data, true, false).newDocument
 }
 
 const noop = (_e) => { }
@@ -173,7 +178,21 @@ const _ooo = {
     },
 
     async stats() {
-        return ky.get(this.httpUrl + '?api=keys').json()
+        // The server's ?api=keys endpoint paginates (default 50, max 500 per page);
+        // page through so stats().keys lists every key, matching the pre-explorer
+        // server that returned all keys at once. Return shape stays {keys}.
+        const limit = 500
+        let page = 1
+        let keys = []
+        for (; ;) {
+            const res = await ky.get(`${this.httpUrl}?api=keys&page=${page}&limit=${limit}`).json()
+            keys = keys.concat(res.keys)
+            if (!res.keys.length || keys.length >= res.total) {
+                break
+            }
+            page++
+        }
+        return { keys }
     },
     async get(key) {
         const data = await ky.get(this.httpUrl + '/' + key).json()
