@@ -18,7 +18,14 @@ const patch = (msg, cache) => {
         return msg.data
     }
 
-    return applyPatch(cache, msg.data).newDocument
+    // validateOperation: true -> an op the cache can't resolve (a positional
+    // remove/replace addressing an index the local cache doesn't have) throws
+    // instead of silently no-op'ing or committing a sparse-corrupted array, so
+    // the resync path below actually fires for the row-drift class. Valid ops
+    // still apply. mutateDocument: false -> a failed patch leaves `cache`
+    // untouched (all-or-nothing).
+    // fast-json-patch v3 signature: applyPatch(document, patch, validateOperation, mutateDocument)
+    return applyPatch(cache, msg.data, true, false).newDocument
 }
 
 const noop = (_e) => { }
@@ -60,9 +67,27 @@ const _ooo = {
     },
 
     _data(event) {
-        const msg = binaryStringToObject(event.data)
-        this.version = msg.version
-        this.cache = patch(msg, this.cache)
+        let nextVersion
+        let nextCache
+        try {
+            const msg = binaryStringToObject(event.data)
+            nextVersion = msg.version
+            nextCache = patch(msg, this.cache)
+        } catch (err) {
+            // a failed patch (or decode) must resync, never corrupt the cache.
+            // resync BEFORE notifying: recovery must not depend on the consumer
+            // callback (a throwing onerror must not leave the subscription frozen).
+            // clear version so the redial carries no ?v= and the server answers
+            // with a full snapshot, then drive the client's forced-reconnect path.
+            this.cache = null
+            this.version = null
+            this.close(true)
+            this.onerror(err)
+            return
+        }
+        // commit only on success
+        this.version = nextVersion
+        this.cache = nextCache
         this.onmessage(this.cache)
     },
 
@@ -153,7 +178,21 @@ const _ooo = {
     },
 
     async stats() {
-        return ky.get(this.httpUrl).json()
+        // The server's ?api=keys endpoint paginates (default 50, max 500 per page);
+        // page through so stats().keys lists every key, matching the pre-explorer
+        // server that returned all keys at once. Return shape stays {keys}.
+        const limit = 500
+        let page = 1
+        let keys = []
+        for (; ;) {
+            const res = await ky.get(`${this.httpUrl}?api=keys&page=${page}&limit=${limit}`).json()
+            keys = keys.concat(res.keys)
+            if (!res.keys.length || keys.length >= res.total) {
+                break
+            }
+            page++
+        }
+        return { keys }
     },
     async get(key) {
         const data = await ky.get(this.httpUrl + '/' + key).json()
